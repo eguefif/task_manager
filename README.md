@@ -7,4 +7,4 @@ This is a learning project. Goals are:
 * Understand how a Phoenix page is build
 
 This project is linked to a series of article on Medium:
-* [Article on the Liveview](https://medium.com/@eguefif/building-tasks-manager-with-phoenix-liveview-i-the-views-9b9d43637b78)
+* [Article on Liveview](https://medium.com/@eguefif/building-tasks-manager-with-phoenix-liveview-i-the-views-9b9d43637b78)
