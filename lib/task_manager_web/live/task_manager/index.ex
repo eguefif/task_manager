@@ -61,13 +61,22 @@ defmodule TaskManagerWeb.TaskManagerLive.Index do
 
   @impl true
   def handle_event("save", %{"task" => task}, socket) do
-    {:ok, task} = Todo.create_task(task)
-    tasks = socket.assigns.tasks ++ [task]
+    case Todo.create_task(task) do
+      {:ok, task} ->
+        tasks = socket.assigns.tasks ++ [task]
 
-    {:noreply,
-     socket
-     |> assign(tasks: tasks)
-     |> assign(:form, to_form(Todo.change_task(%Task{})))}
+        {:noreply,
+         socket
+         |> put_flash(:info, "Task created successfully")
+         |> assign(tasks: tasks)
+         |> assign(:form, to_form(Todo.change_task(%Task{})))}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Error while creating task")
+         |> assign(form: to_form(changeset))}
+    end
   end
 
   @impl true
@@ -84,16 +93,21 @@ defmodule TaskManagerWeb.TaskManagerLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    Todo.delete_task(id)
+    case Todo.delete_task(id) do
+      {:ok, _} ->
+        tasks =
+          socket.assigns.tasks
+          |> Enum.filter(fn task -> task.id != id end)
 
-    tasks =
-      socket.assigns.tasks
-      |> Enum.filter(fn task -> task.id != id end)
+        {:noreply,
+         socket
+         |> put_flash(:info, "Task was deleted successfully")
+         |> assign(:tasks, tasks)
+         |> assign(:form, to_form(Todo.change_task(%Task{})))}
 
-    {:noreply,
-     socket
-     |> assign(:tasks, tasks)
-     |> assign(:form, to_form(Todo.change_task(%Task{})))}
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset))}
+    end
   end
 
   @impl true
