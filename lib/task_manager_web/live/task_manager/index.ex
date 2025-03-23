@@ -1,18 +1,16 @@
 defmodule TaskManagerWeb.TaskManagerLive.Index do
   use TaskManagerWeb, :live_view
+  alias TaskManager.Todo
+  alias TaskManager.Todo.Task
 
   @impl true
   def mount(_params, _sessions, socket) do
-    dummy_tasks = [
-      %{id: 0, name: "Go to Mars", status: false},
-      %{id: 1, name: "By a rocket", status: true},
-      %{id: 2, name: "Clean your base", status: false}
-    ]
+    tasks = Todo.list_tasks()
 
     {:ok,
      socket
-     |> assign(:tasks, dummy_tasks)
-     |> assign(:form, to_form(%{"id" => 0, "name" => "", "status" => false}))}
+     |> assign(:tasks, tasks)
+     |> assign(:form, to_form(Todo.change_task(%Task{})))}
   end
 
   @impl true
@@ -27,7 +25,7 @@ defmodule TaskManagerWeb.TaskManagerLive.Index do
 
   def task_input(assigns) do
     ~H"""
-    <.simple_form for={@form} id="task-form" phx-submit="save">
+    <.simple_form for={@form} id="task-form" phx-submit="save" phx-change="validate">
       <.input field={@form[:name]} type="text" label="Task" />
     </.simple_form>
     """
@@ -62,48 +60,64 @@ defmodule TaskManagerWeb.TaskManagerLive.Index do
   end
 
   @impl true
-  def handle_event("save", %{"name" => task_name}, socket) do
-    id =
-      socket.assigns.tasks
-      |> Enum.reduce(0, fn task, acc ->
-        if task.id > acc, do: task.id, else: acc
-      end)
+  def handle_event("save", %{"task" => task}, socket) do
+    case Todo.create_task(task) do
+      {:ok, task} ->
+        tasks = socket.assigns.tasks ++ [task]
 
-    tasks = socket.assigns.tasks ++ [%{id: id + 1, name: task_name, status: false}]
+        {:noreply,
+         socket
+         |> put_flash(:info, "Task created successfully")
+         |> assign(tasks: tasks)
+         |> assign(:form, to_form(Todo.change_task(%Task{})))}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Error while creating task")
+         |> assign(form: to_form(changeset))}
+    end
+  end
+
+  @impl true
+  def handle_event("validate", %{"task" => task}, socket) do
+    form =
+      %Task{}
+      |> Todo.change_task(task)
+      |> to_form(action: :validate)
 
     {:noreply,
      socket
-     |> assign(tasks: tasks)
-     |> assign(
-       :form,
-       to_form(%{"id" => 0, "name" => "", "status" => false})
-     )}
+     |> assign(:form, form)}
   end
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    tasks =
-      socket.assigns.tasks
-      |> Enum.filter(fn task -> task.id != id end)
+    case Todo.delete_task(id) do
+      {:ok, _} ->
+        tasks =
+          socket.assigns.tasks
+          |> Enum.filter(fn task -> task.id != id end)
 
-    {:noreply,
-     socket
-     |> assign(:tasks, tasks)}
+        {:noreply,
+         socket
+         |> put_flash(:info, "Task was deleted successfully")
+         |> assign(:tasks, tasks)
+         |> assign(:form, to_form(Todo.change_task(%Task{})))}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset))}
+    end
   end
 
   @impl true
   def handle_event("toggle", %{"id" => id}, socket) do
-    tasks =
-      socket.assigns.tasks
-      |> Enum.map(fn task ->
-        task =
-          if task.id == id, do: Map.update!(task, :status, fn status -> !status end), else: task
-
-        task
-      end)
+    Todo.toggle_task(id)
+    tasks = Todo.list_tasks()
 
     {:noreply,
      socket
-     |> assign(:tasks, tasks)}
+     |> assign(:tasks, tasks)
+     |> assign(:form, to_form(Todo.change_task(%Task{})))}
   end
 end
