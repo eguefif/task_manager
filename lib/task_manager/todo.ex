@@ -28,4 +28,8 @@ defmodule TaskManager.Todo do
     |> Task.changeset(%{status: !task.status})
     |> Repo.update!()
   end
+
+  def get_task(id) do
+    Repo.get!(Task, id)
+  end
 end
